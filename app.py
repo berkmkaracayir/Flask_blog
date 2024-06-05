@@ -3,9 +3,62 @@ import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
-app.secret_key = 'supersecretkey'
+app.secret_key = 'asfkjhdasfg4ljk4ad1hflkjash2lkaj'
 
 DATABASE = 'database.db'
+
+@app.route('/edit_user/<int:id>', methods=['GET', 'POST'])
+def edit_user(id):
+    if not session.get('is_admin'):
+        flash('Only admin users can access this page.')
+        return redirect(url_for('index'))
+    
+    db = get_db()
+    user = db.execute('SELECT * FROM users WHERE id = ?', (id,)).fetchone()
+    
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        is_admin = 1 if 'is_admin' in request.form else 0
+        db.execute('UPDATE users SET username = ?, email = ?, is_admin = ? WHERE id = ?', (username, email, is_admin, id))
+        db.commit()
+        flash('User updated successfully.')
+        return redirect(url_for('admin'))
+    
+    return render_template('edit_user.html', user=user)
+
+@app.route('/delete_user/<int:id>', methods=['POST'])
+def delete_user(id):
+    if not session.get('is_admin'):
+        flash('Only admin users can access this page.')
+        return redirect(url_for('index'))
+    
+    db = get_db()
+    db.execute('DELETE FROM users WHERE id = ?', (id,))
+    db.commit()
+    flash('User deleted successfully.')
+    
+    return redirect(url_for('admin'))
+
+
+@app.route('/delete/<int:id>', methods=['POST'])
+def delete(id):
+    if not session.get('user_id'):
+        flash('Please log in to delete a post.')
+        return redirect(url_for('login'))
+    
+    db = get_db()
+    post = db.execute('SELECT * FROM posts WHERE id = ?', (id,)).fetchone()
+    
+    if post['user_id'] != session['user_id'] and not session.get('is_admin'):
+        flash('You can only delete your own posts.')
+        return redirect(url_for('index'))
+    
+    db.execute('DELETE FROM posts WHERE id = ?', (id,))
+    db.commit()
+    flash('Post deleted successfully.')
+    
+    return redirect(url_for('index'))
 
 def get_db():
     conn = sqlite3.connect(DATABASE)
