@@ -1,5 +1,6 @@
 from flask import Flask, render_template, request, redirect, url_for, flash, session
 import sqlite3
+import markdown2
 from werkzeug.security import generate_password_hash, check_password_hash
 
 app = Flask(__name__)
@@ -65,6 +66,11 @@ def get_db():
     conn.row_factory = sqlite3.Row
     return conn
 
+def get_post(post_id):
+    db = get_db()
+    post = db.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
+    return post
+
 @app.route('/')
 def index():
     db = get_db()
@@ -72,12 +78,19 @@ def index():
     posts = cur.fetchall()
     return render_template('index.html', posts=posts)
 
+def render_markdown(content):
+    html_content = markdown2.markdown(content, extras=["fenced-code-blocks", "code-friendly", "tables"])
+    return html_content
+
 @app.route('/post/<int:post_id>')
 def post(post_id):
-    db = get_db()
-    cur = db.execute('SELECT * FROM posts WHERE id = ?', (post_id,))
-    post = cur.fetchone()
-    return render_template('post.html', post=post)
+    post = get_post(post_id)
+    if post:
+        post_content = render_markdown(post['content'])
+        return render_template('post.html', post=post, post_content=post_content)
+    else:
+        flash('Post not found')
+        return redirect(url_for('index'))
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
