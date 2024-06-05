@@ -46,8 +46,8 @@ To run this application locally, follow these steps:
 
 1. **Clone the repository:**
    ```bash
-   git clone <repository_url>
-   cd <repository_directory>
+   git clone https://github.com/berkmkaracayir/Flask_blog.git
+   cd Flask_blog
    ```
 
 2. **Create a virtual environment and activate it:**
