@@ -1,5 +1,4 @@
 # Flask_blog
-### Flask Blog Application README
 
 #### Introduction
 
