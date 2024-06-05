@@ -1,6 +1,6 @@
 {% extends 'base.html' %}
 {% block content %}
 <h2>{{ post['title'] }}</h2>
-<span class="badge badge-primary">{{ post['created'] }}</span>
+<span class="badge badge-primary">{{ post['created'] }} by {{ post['owner_name'] }}</span>
 <div>{{ post_content|safe }}</div>
 {% endblock %}

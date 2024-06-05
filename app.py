@@ -74,7 +74,12 @@ def get_post(post_id):
 @app.route('/')
 def index():
     db = get_db()
-    cur = db.execute('SELECT * FROM posts ORDER BY created DESC')
+    cur = db.execute('''
+        SELECT posts.*, users.username 
+        FROM posts 
+        JOIN users ON posts.user_id = users.id 
+        ORDER BY created DESC
+    ''')
     posts = cur.fetchall()
     return render_template('index.html', posts=posts)
 
@@ -84,13 +89,21 @@ def render_markdown(content):
 
 @app.route('/post/<int:post_id>')
 def post(post_id):
-    post = get_post(post_id)
+    db = get_db()
+    cur = db.execute('''
+        SELECT posts.*, users.username 
+        FROM posts 
+        JOIN users ON posts.user_id = users.id 
+        WHERE posts.id = ?
+    ''', [post_id])
+    post = cur.fetchone()
     if post:
         post_content = render_markdown(post['content'])
         return render_template('post.html', post=post, post_content=post_content)
     else:
         flash('Post not found')
         return redirect(url_for('index'))
+
 
 @app.route('/login', methods=['GET', 'POST'])
 def login():
