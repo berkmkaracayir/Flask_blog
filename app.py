@@ -1,74 +1,117 @@
+from flask import Flask, render_template, request, redirect, url_for, flash, session
 import sqlite3
-from flask import Flask, render_template, request, url_for, flash, redirect, abort
+from werkzeug.security import generate_password_hash, check_password_hash
 
-def get_db_connection():
-    conn = sqlite3.connect('database.db')
+app = Flask(__name__)
+app.secret_key = 'supersecretkey'
+
+DATABASE = 'database.db'
+
+def get_db():
+    conn = sqlite3.connect(DATABASE)
     conn.row_factory = sqlite3.Row
     return conn
 
-def get_post(post_id):
-    conn = get_db_connection()
-    post = conn.execute('SELECT * FROM posts WHERE id = ?', (post_id,)).fetchone()
-    conn.close()
-    if post is None:
-        abort(404)
-    return post
-
-app = Flask(__name__)
-app.config['SECRET_KEY'] = 'XYZ123'
-
 @app.route('/')
 def index():
-    conn = get_db_connection()
-    posts = conn.execute('SELECT * FROM posts').fetchall()
-    conn.close()
+    db = get_db()
+    cur = db.execute('SELECT * FROM posts ORDER BY created DESC')
+    posts = cur.fetchall()
     return render_template('index.html', posts=posts)
 
-@app.route('/<int:post_id>')
+@app.route('/post/<int:post_id>')
 def post(post_id):
-    post = get_post(post_id)
+    db = get_db()
+    cur = db.execute('SELECT * FROM posts WHERE id = ?', (post_id,))
+    post = cur.fetchone()
     return render_template('post.html', post=post)
 
-@app.route('/create', methods=('GET', 'POST'))
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    if request.method == 'POST':
+        email = request.form['email']
+        password = request.form['password']
+        db = get_db()
+        user = db.execute('SELECT * FROM users WHERE email = ?', (email,)).fetchone()
+        if user and check_password_hash(user['password'], password):
+            session['user_id'] = user['id']
+            session['is_admin'] = user['is_admin']
+            session['username'] = user['username']
+            if user['is_admin']:
+                return redirect(url_for('admin'))
+            return redirect(url_for('index'))
+        else:
+            flash('Invalid email or password')
+    return render_template('login.html')
+
+@app.route('/register', methods=['GET', 'POST'])
+def register():
+    if request.method == 'POST':
+        username = request.form['username']
+        email = request.form['email']
+        password = request.form['password']
+        hashed_password = generate_password_hash(password)
+        db = get_db()
+        try:
+            db.execute('INSERT INTO users (username, email, password, is_admin) VALUES (?, ?, ?, 0)', (username, email, hashed_password))
+            db.commit()
+            return redirect(url_for('login'))
+        except sqlite3.IntegrityError:
+            flash('Username or email already exists')
+    return render_template('register.html')
+
+@app.route('/logout')
+def logout():
+    session.pop('user_id', None)
+    session.pop('is_admin', None)
+    session.pop('username', None)
+    return redirect(url_for('index'))
+
+@app.route('/create', methods=['GET', 'POST'])
 def create():
+    if not session.get('user_id'):
+        flash('Please log in to create a post.')
+        return redirect(url_for('login'))
     if request.method == 'POST':
         title = request.form['title']
         content = request.form['content']
-        if not title:
-            flash('Title is required!')
-        else:
-            conn = get_db_connection()
-            conn.execute('INSERT INTO posts (title, content) VALUES (?, ?)', (title, content))
-            conn.commit()
-            conn.close()
-            return redirect(url_for('index'))
+        user_id = session['user_id']
+        db = get_db()
+        db.execute('INSERT INTO posts (title, content, user_id) VALUES (?, ?, ?)', (title, content, user_id))
+        db.commit()
+        return redirect(url_for('index'))
     return render_template('create.html')
 
-@app.route('/<int:id>/edit', methods=('GET', 'POST'))
+@app.route('/edit/<int:id>', methods=['GET', 'POST'])
 def edit(id):
-    post = get_post(id)
+    if not session.get('user_id'):
+        flash('Please log in to edit a post.')
+        return redirect(url_for('login'))
+    
+    db = get_db()
+    post = db.execute('SELECT * FROM posts WHERE id = ?', (id,)).fetchone()
+    
+    if post['user_id'] != session['user_id'] and not session.get('is_admin'):
+        flash('You can only edit your own posts.')
+        return redirect(url_for('index'))
+    
     if request.method == 'POST':
         title = request.form['title']
         content = request.form['content']
-        if not title:
-            flash('Title is required!')
-        else:
-            conn = get_db_connection()
-            conn.execute('UPDATE posts SET title = ?, content = ? WHERE id = ?', (title, content, id))
-            conn.commit()
-            conn.close()
-            return redirect(url_for('index'))
+        db.execute('UPDATE posts SET title = ?, content = ? WHERE id = ?', (title, content, id))
+        db.commit()
+        return redirect(url_for('index'))
+    
     return render_template('edit.html', post=post)
 
-@app.route('/<int:id>/delete', methods=('POST',))
-def delete(id):
-    post = get_post(id)
-    conn = get_db_connection()
-    conn.execute('DELETE FROM posts WHERE id = ?', (id,))
-    conn.commit()
-    conn.close()
-    flash('"{}" was successfully deleted!'.format(post['title']))
-    return redirect(url_for('index'))
+@app.route('/admin')
+def admin():
+    if not session.get('is_admin'):
+        flash('Only admin users can access this page.')
+        return redirect(url_for('index'))
+    db = get_db()
+    users = db.execute('SELECT * FROM users').fetchall()
+    return render_template('admin.html', users=users)
 
 if __name__ == '__main__':
     app.run(debug=True)
