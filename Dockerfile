@@ -11,8 +11,5 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Uygulama kodunu kopyala
 COPY . .
 
-# Veri tabanını başlat
-RUN python init_db.py
-
-# Uygulamayı başlat (gunicorn kullanarak)
-CMD ["gunicorn", "--bind", "0.0.0.0:8000", "app:app"]
+# Veri tabanını başlat ve ardından gunicorn başlat
+CMD ["sh", "-c", "python init_db.py && gunicorn --bind 0.0.0.0:8000 app:app"]
