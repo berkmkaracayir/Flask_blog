@@ -1,11 +1,14 @@
+<!-- create.html -->
 {% extends 'base.html' %}
 {% block content %}
 <h2>Create a new post</h2>
 <form action="{{ url_for('create') }}" method="post">
     <p>Title:</p>
-    <p><input type="text" name="title" /></p>
+    <p><input type="text" name="title" class="form-control" /></p>
     <p>Content:</p>
-    <p><textarea name="content"></textarea></p>
-    <p><input type="submit" value="Create" /></p>
+    <div class="textarea-wrapper">
+        <textarea name="content" id="contentCreate" class="form-control code-block"></textarea>
+    </div>
+    <p><input type="submit" value="Create" class="btn btn-primary mt-3" /></p>
 </form>
 {% endblock %}

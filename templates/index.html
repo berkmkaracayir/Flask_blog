@@ -1,13 +1,14 @@
+<!-- index.html -->
 {% extends 'base.html' %}
 
 {% block content %}
 <br>
-<h1>Blog Posts</h1>
+<h1 style="font-family: 'Courier New', Courier, monospace;">Blog Posts</h1>
 <br>
 <br>
 {% for post in posts %}
     <a href="{{ url_for('post', post_id=post['id']) }}">
-        <h2>{{ post['title'] }}</h2>
+        <h2 style="font-family: 'Courier New', Courier, monospace;">{{ post['title'] }}</h2>
     </a>
     <span class="badge badge-primary">{{ post['created'] }} by {{ post['username'] }}</span>
     {% if session.get('user_id') == post['user_id'] or session.get('is_admin') %}
